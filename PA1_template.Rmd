@@ -1,25 +1,166 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_template"
+author: "Varun Tomar"
+date: "May 25, 2016"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+## Introduction
 
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
 
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
 
-## What is mean total number of steps taken per day?
+The data for this assignment can be downloaded from the course web site:
 
+    Dataset: Activity monitoring data [52K]
 
+The variables included in this dataset are:
 
-## What is the average daily activity pattern?
+    steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+    date: The date on which the measurement was taken in YYYY-MM-DD format
+    interval: Identifier for the 5-minute interval in which measurement was taken
 
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
 
+## 1. Code for reading in the dataset and/or processing the data
 
-## Imputing missing values
+```{r}
+f<-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
 
+if(!file.exists("d396qusza40orc.cloudfront.net-activity.zip")){download.file(f,"d.zip")}
+unzip("d.zip")
 
+fd<-read.csv(unzip("d.zip"),sep = ",",header = T)
+head(fd)
+str(fd)
 
-## Are there differences in activity patterns between weekdays and weekends?
+fd$date<-as.Date(fd$date,"%Y-%m-%d")
+
+fd2<-aggregate(fd$steps,FUN=sum,by=list(fd$date),na.rm=T)
+summary(fd2)
+```
+
+## Including Plots
+
+#2. Histogram of the total number of steps taken each day
+
+```{r}
+library(lattice)
+histogram(fd2$x,fd2,xlab="total steps/day",ylab="% share",main="Total Steps [Oct-Dec]",xlim=c(0,22000),col="orange")
+```
+
+the histogram shows that there is a sudden decrease in activity after 15000 steps, which was gradually increased and attained a maximum frequency share at around 12000.
+
+#3. Mean and median number of steps taken each day
+
+```{r}
+mean1<-mean(fd2$x)
+mean1
+
+median1<-median(fd2$x)
+median1
+```
+Average steps taken were 9354, whereas median was at 10395.
+
+#4. Time series plot of the average number of steps taken
+
+```{r}
+fd3<-aggregate(fd$steps,FUN=function(x){mean(x,na.rm = TRUE)},by=list(fd$interval))
+
+summary(fd3)
+
+plot(fd3$Group.1,fd3$x,type="l",xlab="intervals",ylab="Avg. steps/interval",main="Average daily activity pattern")
+```
+
+#5. The 5-minute interval that, on average, contains the maximum number of steps
+```{r}
+fd3[fd3$x %in% max(fd3$x),1]
+```
+As shown above, it is 835th interval where maximum steps taken were 206.
+
+#6. Code to describe and show a strategy for imputing missing data
+```{r}
+#number of entries with NA values
+sum(is.na(fd$steps))
+
+# % share of NA values
+mean(is.na(fd$steps))
+```
+
+#7. Strategy based on mean of 5 minute intervals for each date
+```{r}
+for (i in 1:length(fd$steps)) {
+  if (is.na(fd[i, 1])) {
+    
+    #Corresponding 5-minute interval, computed before
+    steps_average <- subset(fd3, fd3$Group.1== as.numeric(fd[i,3]))$x
+    
+    #Replaces the value
+    fd[i, 1] <- steps_average
+  } else {
+    fd[i, 1] <- fd[i, 1]
+  }
+  fd
+}
+
+head(fd)
+
+fd4<-aggregate(fd$steps,FUN=sum,by=list(fd$date))
+
+```
+
+#8. Histogram of the total number of steps taken each day after missing values are imputed
+
+```{r}
+library(lattice)
+
+histogram(fd4$x,fd4,xlab="total steps/day",ylab="% share",main="Total Steps [Oct-Dec]",col="orange")
+```
+
+the histogram shows gradual increase in activity pattern from 0-13000 intervals and form a bell curve, which is different from what we have seen earlier before imputing missing "NA" values especially at intial 0-2000 steps levels.
+
+#9. Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r}
+
+fd$day<-weekdays(fd$date)
+
+for(j in 1:length(fd$steps)){
+  
+  if(!is.null(fd[j,4]) && fd[j,4]=="Saturday" | fd[j,4]=="Sunday"){
+    h<-"Weekend"
+    fd[j,4]<-h
+    }else {
+    h<-"Weekday"
+    fd[j,4]<-h
+    }
+    fd
+}
+
+# Weekday activity pattern data
+fd5<-subset(fd,fd$day=="Weekday")
+fd5<-aggregate(fd5$steps,FUN=mean,by=list(fd5$day,fd5$interval))
+
+# Weekend activity pattern data
+fd6<-subset(fd,fd$day=="Weekend")
+fd6<-aggregate(fd6$steps,FUN=mean,by=list(fd6$day,fd6$interval))
+
+# panel plots for comparison
+par(mfrow=c(2,1),mar=c(4,4,4,2))
+
+# Weekdays plot
+plot(fd5$Group.2,fd5$x,type="l",xlab="intervals",ylab="Avg. steps/interval",main="Activity pattern (Weekdays)")
+
+# Weekends plot
+plot(fd6$Group.2,fd6$x,type="l",xlab="intervals",ylab="Avg. steps/interval",main="Activity pattern (Weekends)")
+
+```
+
+After comparison, it is clear that average steps taken were more in weekends then weekdays, which is quite uniformly distributed then in weekdays.
+
+```
